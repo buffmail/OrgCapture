@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    >
+	<Button 
+      android:id="@+id/auth_button" 
+	  android:text="Link with Dropbox" 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+	  />
+
+	<EditText
+		android:id="@+id/capture_title"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:ems="10"
+		android:inputType="text" />
+
+	<EditText
+		android:id="@+id/capture_content"
+		style="@android:style/Widget.EditText"
+		android:layout_width="fill_parent"
+		android:layout_height="351dp"
+		android:ems="10"
+		android:inputType="textMultiLine"
+		android:selectAllOnFocus="false"
+		android:singleLine="false" />
+
+	<LinearLayout
+        android:id="@+id/logged_in_display" 
+        android:orientation="vertical"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_weight="1"
+        >
+
+		<LinearLayout
+		    android:orientation="horizontal"
+		    android:layout_width="fill_parent"
+		    android:layout_height="wrap_content"
+		    >
+		    <Button 
+		      android:id="@+id/capture_to_org_button"
+		      android:text="Capture content to org file"
+		      android:layout_width="fill_parent"
+		      android:layout_height="wrap_content"
+	          android:layout_weight="1"
+		      />
+		</LinearLayout>
+    </LinearLayout>
+</LinearLayout>
+	      
