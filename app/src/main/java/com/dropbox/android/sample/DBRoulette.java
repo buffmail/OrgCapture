@@ -33,6 +33,7 @@ import java.util.Date;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
@@ -107,18 +108,25 @@ public class DBRoulette extends Activity {
         setLoggedIn(mApi.getSession().isLinked());
 
         Intent intent = getIntent();
-        String action = intent.getAction();
-        String type = intent.getType();
+        final String action = intent.getAction();
+        final String type = intent.getType();
 
         if (Intent.ACTION_SEND.equals(action) && type != null)
         {
             if ("text/plain".equals(type))
             {
-                final String sharedTitle = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-                final String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+                final String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+                String title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+                if (title.length() == 0)
+                    title = intent.getStringExtra(Intent.EXTRA_TITLE);
+                if (title.length() == 0){
+                    ComponentName name = getCallingActivity();
+                    if (name != null)
+                        title = name.getShortClassName();
+                }
 
-                mCaptureTitle.setText(sharedTitle);
-                mCaptureContent.setText(sharedText);
+                mCaptureTitle.setText(title);
+                mCaptureContent.setText(text);
             }
         }
     }
