@@ -56,31 +56,14 @@ import com.dropbox.client2.session.AppKeyPair;
 
 public class DBRoulette extends Activity {
     private static final String TAG = "DBRoulette";
-
-    ///////////////////////////////////////////////////////////////////////////
-    //                      Your app-specific settings.                      //
-    ///////////////////////////////////////////////////////////////////////////
-
-    // Replace this with your app key and secret assigned by Dropbox.
-    // Note that this is a really insecure way to do this, and you shouldn't
-    // ship code which contains your key & secret in such an obvious way.
-    // Obfuscation is good.
     private static final String APP_KEY = "h1hbkipv02vmg9k";
     private static final String APP_SECRET = "r8sadyhrpw0w57u";
-
-    ///////////////////////////////////////////////////////////////////////////
-    //                      End app-specific settings.                       //
-    ///////////////////////////////////////////////////////////////////////////
-
-    // You don't need to change these, leave them alone.
     private static final String ACCOUNT_PREFS_NAME = "prefs";
     private static final String ACCESS_KEY_NAME = "ACCESS_KEY";
     private static final String ACCESS_SECRET_NAME = "ACCESS_SECRET";
-
     private static final String ORG_PATH = "life.org";
 
     DropboxAPI<AndroidAuthSession> mApi;
-
     private boolean mLoggedIn;
 
     // Android widgets
@@ -95,11 +78,9 @@ public class DBRoulette extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // We create a new AuthSession so that we can use the Dropbox API.
         AndroidAuthSession session = buildSession();
         mApi = new DropboxAPI<AndroidAuthSession>(session);
 
-        // Basic Android widgets
         setContentView(R.layout.main);
 
         checkAppKeySetup();
@@ -107,11 +88,9 @@ public class DBRoulette extends Activity {
         mSubmit = (Button)findViewById(R.id.auth_button);
         mSubmit.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
-                // This logs you out if you're logged in, or vice versa
                 if (mLoggedIn) {
                     logOut();
                 } else {
-                    // Start the remote authentication
                         mApi.getSession().startOAuth2Authentication(DBRoulette.this);
                 }
             }
@@ -119,14 +98,12 @@ public class DBRoulette extends Activity {
 
         mDisplay = (LinearLayout)findViewById(R.id.logged_in_display);
 
-        // This is the button to take a photo
         mCaptureButton = (Button)findViewById(R.id.capture_to_org_button);
         mCaptureTitle = (EditText)findViewById(R.id.capture_title);
         mCaptureContent = (EditText)findViewById(R.id.capture_content);
 
         mCaptureButton.setOnClickListener(createCaptureClickListener(mCaptureTitle, mCaptureContent));
 
-        // Display the proper UI state if logged in or not
         setLoggedIn(mApi.getSession().isLinked());
 
         Intent intent = getIntent();
@@ -293,9 +270,9 @@ public class DBRoulette extends Activity {
 
     private void checkAppKeySetup() {
         // Check to make sure that we have a valid app key
-        if (APP_KEY.startsWith("CHANGE") ||
-                APP_SECRET.startsWith("CHANGE")) {
-            showToast("You must apply for an app key and secret from developers.dropbox.com, and add them to the DBRoulette ap before trying it.");
+        if (APP_KEY.startsWith("CHANGE") || APP_SECRET.startsWith("CHANGE")) {
+            showToast("You must apply for an app key and secret from developers.dropbox.com, "
+                    + "and add them to the DBRoulette ap before trying it.");
             finish();
             return;
         }
