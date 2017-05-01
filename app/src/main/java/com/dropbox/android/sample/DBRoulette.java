@@ -117,12 +117,15 @@ public class DBRoulette extends Activity {
             {
                 final String text = intent.getStringExtra(Intent.EXTRA_TEXT);
                 String title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-                if (title.length() == 0)
+                if (title == null)
                     title = intent.getStringExtra(Intent.EXTRA_TITLE);
-                if (title.length() == 0){
+                if (title == null) {
                     ComponentName name = getCallingActivity();
                     if (name != null)
                         title = name.getShortClassName();
+                }
+                if (title == null){
+                    title = "capture";
                 }
 
                 mCaptureTitle.setText(title);
