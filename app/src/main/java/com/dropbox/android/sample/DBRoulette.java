@@ -33,6 +33,8 @@ import java.util.Date;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -99,10 +101,10 @@ public class DBRoulette extends Activity {
 
         mDisplay = (LinearLayout)findViewById(R.id.logged_in_display);
 
-        mCaptureButton = (Button)findViewById(R.id.capture_to_org_button);
         mCaptureTitle = (EditText)findViewById(R.id.capture_title);
         mCaptureContent = (EditText)findViewById(R.id.capture_content);
 
+        mCaptureButton = (Button)findViewById(R.id.capture_to_org_button);
         mCaptureButton.setOnClickListener(
             new OnClickListener() {
                 public void onClick(View view) {
@@ -116,39 +118,7 @@ public class DBRoulette extends Activity {
                     final String content = createOrgContent(captureTitle, captureContent);
                     final String path = getFilesDir() + "/temp.txt";
 
-                    mProgressDialog = new ProgressDialog(DBRoulette.this);
-                    mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                    mProgressDialog.setTitle("Loading...");
-                    mProgressDialog.show();
-
-                    new Thread(){
-                        public void run(){
-                            try {
-                                String parentRev = null;
-                                File file = new File(path);
-                                {
-                                    FileOutputStream outputStream = new FileOutputStream(file);
-                                    DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
-                                            outputStream, createRangeProgressListener(0, 50));
-                                    parentRev = info.getMetadata().rev;
-
-                                    outputStream = new FileOutputStream(file, true);
-                                    outputStream.write(content.getBytes());
-                                }
-                                {
-                                    FileInputStream inStream = new FileInputStream(file);
-                                    DropboxAPI.Entry response = mApi.putFile(ORG_PATH, inStream,
-                                            file.length(), parentRev,
-                                            createRangeProgressListener(50, 100));
-                                    showToast("Uploaded file rev : " + response.rev);
-                                }
-                            } catch (Exception e) {
-                                showToast(e.toString());
-                            } finally {
-                                mProgressDialog.dismiss();
-                            }
-                         }
-                    }.start();
+                    updateOrgContentAsync(content, path);
                 }
             });
 
@@ -178,7 +148,55 @@ public class DBRoulette extends Activity {
                 mCaptureTitle.setText(title);
                 mCaptureContent.setText(text);
             }
+        } else {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            ClipData clipData = clipboard.getPrimaryClip();
+            ClipData.Item item = clipData.getItemAt(0);
+            final String text = item.getText().toString();
+            if (text != null)
+            {
+                mCaptureTitle.setText("clipboard");
+                mCaptureContent.setText(text);
+            }
         }
+    }
+
+    private void updateOrgContentAsync(final String content, final String path) {
+
+        mProgressDialog = new ProgressDialog(DBRoulette.this);
+        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        mProgressDialog.setTitle("Loading...");
+        mProgressDialog.show();
+
+        new Thread(){
+            public void run(){
+                try {
+                    String parentRev = null;
+                    File file = new File(path);
+                    {
+                        FileOutputStream outputStream = new FileOutputStream(file);
+                        DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
+                                outputStream, createRangeProgressListener(0, 50));
+                        parentRev = info.getMetadata().rev;
+
+                        outputStream = new FileOutputStream(file, true);
+                        outputStream.write(content.getBytes());
+                    }
+                    {
+                        FileInputStream inStream = new FileInputStream(file);
+                        DropboxAPI.Entry response = mApi.putFile(ORG_PATH, inStream,
+                                file.length(), parentRev,
+                                createRangeProgressListener(50, 100));
+                        showToast("Uploaded file rev : " + response.rev);
+                    }
+                } catch (Exception e) {
+                    showToast(e.toString());
+                } finally {
+                    mProgressDialog.dismiss();
+                }
+             }
+        }.start();
+
     }
 
     @Override
