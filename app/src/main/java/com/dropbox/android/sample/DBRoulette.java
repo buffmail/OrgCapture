@@ -103,7 +103,54 @@ public class DBRoulette extends Activity {
         mCaptureTitle = (EditText)findViewById(R.id.capture_title);
         mCaptureContent = (EditText)findViewById(R.id.capture_content);
 
-        mCaptureButton.setOnClickListener(createCaptureClickListener(mCaptureTitle, mCaptureContent));
+        mCaptureButton.setOnClickListener(
+            new OnClickListener() {
+                public void onClick(View view) {
+                    final String captureTitle = mCaptureTitle.getText().toString();
+                    final String captureContent = mCaptureContent.getText().toString();
+                    if (captureTitle.length() == 0 || captureContent.length() == 0) {
+                        showToast("empty capture content.");
+                        return;
+                    }
+
+                    final String content = createOrgContent(captureTitle, captureContent);
+                    final String path = getFilesDir() + "/temp.txt";
+
+                    mProgressDialog = new ProgressDialog(DBRoulette.this);
+                    mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                    mProgressDialog.setTitle("Loading...");
+                    mProgressDialog.show();
+
+                    new Thread(){
+                        public void run(){
+                            try {
+                                String parentRev = null;
+                                File file = new File(path);
+                                {
+                                    FileOutputStream outputStream = new FileOutputStream(file);
+                                    DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
+                                            outputStream, createRangeProgressListener(0, 50));
+                                    parentRev = info.getMetadata().rev;
+
+                                    outputStream = new FileOutputStream(file, true);
+                                    outputStream.write(content.getBytes());
+                                }
+                                {
+                                    FileInputStream inStream = new FileInputStream(file);
+                                    DropboxAPI.Entry response = mApi.putFile(ORG_PATH, inStream,
+                                            file.length(), parentRev,
+                                            createRangeProgressListener(50, 100));
+                                    showToast("Uploaded file rev : " + response.rev);
+                                }
+                            } catch (Exception e) {
+                                showToast(e.toString());
+                            } finally {
+                                mProgressDialog.dismiss();
+                            }
+                         }
+                    }.start();
+                }
+            });
 
         setLoggedIn(mApi.getSession().isLinked());
 
@@ -141,97 +188,6 @@ public class DBRoulette extends Activity {
             mProgressDialog = null;
         }
         super.onDestroy();
-    }
-
-    private OnClickListener createCaptureClickListener(EditText captureTitle, EditText captureContent)
-    {
-        class MyClickListener implements OnClickListener
-        {
-            private EditText mTitle;
-            private EditText mContent;
-
-            public MyClickListener(EditText title, EditText content){
-                mTitle = title;
-                mContent = content;
-            }
-
-            public void onClick(View v) {
-                final String captureTitle = mTitle.getText().toString();
-                final String captureContent = mContent.getText().toString();
-                if (captureTitle.length() == 0 || captureContent.length() == 0) {
-                    showToast("empty capture content.");
-                    return;
-                }
-
-                SimpleDateFormat sdf = new SimpleDateFormat("[yyyy-MM.dd EEE]");
-
-                String temp = "\n** ";
-                temp += (captureTitle.length() != 0) ? captureTitle : "capture";
-                temp += "\n   " + sdf.format(new Date());
-                temp += "\n   ";
-                temp += captureContent;
-                final String content = temp;
-                final String path = getFilesDir() + "/temp.txt";
-
-                mProgressDialog = new ProgressDialog(DBRoulette.this);
-                mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                mProgressDialog.setTitle("Loading...");
-                mProgressDialog.show();
-
-                class MyProgressListener extends ProgressListener {
-                    private int mBasePercent;
-                    private int mTopPercent;
-
-                    public MyProgressListener(int basePercent, int topPercent){
-                        mBasePercent = basePercent;
-                        mTopPercent = topPercent;
-                    }
-
-                    @Override
-                    public long progressInterval(){
-                        return 100;
-                    }
-
-                    @Override
-                    public void onProgress(long bytes, long total) {
-                        int percent = mBasePercent +
-                                (int)((mTopPercent - mBasePercent) * bytes / (float)total);
-                        mProgressDialog.setProgress(percent);
-                    }
-                };
-
-                new Thread(){
-                    public void run(){
-                        try {
-                            String parentRev = null;
-                            File file = new File(path);
-                            {
-                                FileOutputStream outputStream = new FileOutputStream(file);
-                                DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
-                                        outputStream, new MyProgressListener(0, 50));
-                                parentRev = info.getMetadata().rev;
-
-                                outputStream = new FileOutputStream(file, true);
-                                outputStream.write(content.getBytes());
-                            }
-                            {
-                                FileInputStream inStream = new FileInputStream(file);
-                                DropboxAPI.Entry response = mApi.putFile(ORG_PATH, inStream,
-                                        file.length(), parentRev,
-                                        new MyProgressListener(50, 100));
-                                showToast("Uploaded file rev : " + response.rev);
-                            }
-                        } catch (Exception e) {
-                            mProgressDialog.dismiss();
-                            showToast(e.toString());
-                        }
-                        mProgressDialog.dismiss();
-                    }
-                }.start();
-            }
-        }
-
-        return new MyClickListener(captureTitle, captureContent);
     }
 
     @Override
@@ -277,6 +233,45 @@ public class DBRoulette extends Activity {
     		mSubmit.setText("Link with Dropbox");
             mDisplay.setVisibility(View.GONE);
     	}
+    }
+
+    private ProgressListener createRangeProgressListener(int basePercent, int topPercent) {
+
+        class MyProgressListener extends ProgressListener {
+            private int mBasePercent;
+            private int mTopPercent;
+
+            public MyProgressListener(int basePercent, int topPercent){
+                mBasePercent = basePercent;
+                mTopPercent = topPercent;
+            }
+
+            @Override
+            public long progressInterval(){
+                return 100;
+            }
+
+            @Override
+            public void onProgress(long bytes, long total) {
+                int percent = mBasePercent +
+                        (int)((mTopPercent - mBasePercent) * bytes / (float)total);
+                mProgressDialog.setProgress(percent);
+            }
+        };
+
+        return new MyProgressListener(basePercent, topPercent);
+    }
+
+    private String createOrgContent(String captureTitle, String captureContent) {
+        SimpleDateFormat sdf = new SimpleDateFormat("[yyyy-MM.dd EEE]");
+
+        String temp = "\n** ";
+        temp += (captureTitle.length() != 0) ? captureTitle : "capture";
+        temp += "\n   " + sdf.format(new Date());
+        temp += "\n   ";
+        temp += captureContent;
+
+        return temp;
     }
 
     private void checkAppKeySetup() {
