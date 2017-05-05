@@ -12,6 +12,13 @@
 	  />
 
 	<EditText
+		android:id="@+id/org_daily_edit"
+		android:layout_width="fill_parent"
+		android:layout_height="261dp"
+		android:ems="10"
+		android:inputType="textMultiLine" />
+
+	<EditText
 		android:id="@+id/capture_title"
 		android:layout_width="fill_parent"
 		android:layout_height="wrap_content"
@@ -22,7 +29,7 @@
 		android:id="@+id/capture_content"
 		style="@android:style/Widget.EditText"
 		android:layout_width="fill_parent"
-		android:layout_height="351dp"
+		android:layout_height="107dp"
 		android:ems="10"
 		android:inputType="textMultiLine"
 		android:selectAllOnFocus="false"

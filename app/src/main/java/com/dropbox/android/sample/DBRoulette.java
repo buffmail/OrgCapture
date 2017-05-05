@@ -32,6 +32,8 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -61,6 +63,8 @@ import com.dropbox.client2.android.AuthActivity;
 import com.dropbox.client2.session.AccessTokenPair;
 import com.dropbox.client2.session.AppKeyPair;
 
+import static java.util.regex.Pattern.DOTALL;
+
 public class DBRoulette extends Activity {
     private static final String TAG = "DBRoulette";
     private static final String APP_KEY = "h1hbkipv02vmg9k";
@@ -81,6 +85,7 @@ public class DBRoulette extends Activity {
     private Button mSubmit;
     private LinearLayout mDisplay;
     private Button mCaptureButton;
+    private EditText mOrgDailyEdit;
     private EditText mCaptureTitle;
     private EditText mCaptureContent;
     private ProgressDialog mProgressDialog;
@@ -111,6 +116,8 @@ public class DBRoulette extends Activity {
 
         mDisplay = (LinearLayout)findViewById(R.id.logged_in_display);
 
+        mOrgDailyEdit = (EditText)findViewById(R.id.org_daily_edit);
+        mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
         mCaptureTitle = (EditText)findViewById(R.id.capture_title);
         mCaptureContent = (EditText)findViewById(R.id.capture_content);
 
@@ -173,7 +180,7 @@ public class DBRoulette extends Activity {
         }
     }
 
-    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Long> {
+    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Void> {
 
         private String mRev = null;
         private String mContent = null;
@@ -185,7 +192,7 @@ public class DBRoulette extends Activity {
             mProgressDialog.show();
         }
 
-        protected Long doInBackground(String... params) {
+        protected Void doInBackground(String... params) {
             final String addedContent = params[0];
             final String path = params[1];
             String prevRev = params[2];
@@ -249,7 +256,7 @@ public class DBRoulette extends Activity {
             } catch (Exception e) {
                 showToast(e.toString());
             }
-            return 0L;
+            return null;
         }
 
         protected void onProgressUpdate(Integer... progress){
@@ -257,7 +264,7 @@ public class DBRoulette extends Activity {
             mProgressDialog.setProgress(percent);
         }
 
-        protected void onPostExecute(Long result){
+        protected void onPostExecute(Void result){
             mProgressDialog.dismiss();
             mOrgData = new Pair(mRev, mContent);
             storeOrgFileData(mOrgData);
@@ -437,5 +444,14 @@ public class DBRoulette extends Activity {
         AndroidAuthSession session = new AndroidAuthSession(appKeyPair);
         loadAuth(session);
         return session;
+    }
+
+    private String getOrgDaily(String orgContent){
+        Pattern p = Pattern.compile("\\n(\\* .*?)\\n\\*", DOTALL);
+        Matcher m = p.matcher(orgContent);
+        if (m.find()) {
+            return m.group();
+        }
+        return null;
     }
 }
