@@ -41,6 +41,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -118,7 +119,7 @@ public class DBRoulette extends Activity {
                     final String content = createOrgContent(captureTitle, captureContent);
                     final String path = getFilesDir() + "/temp.txt";
 
-                    updateOrgContentAsync(content, path);
+                    new UpdateOrgContentTask().execute(content, path);
                 }
             });
 
@@ -161,42 +162,66 @@ public class DBRoulette extends Activity {
         }
     }
 
-    private void updateOrgContentAsync(final String content, final String path) {
+    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Long> {
 
-        mProgressDialog = new ProgressDialog(DBRoulette.this);
-        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        mProgressDialog.setTitle("Loading...");
-        mProgressDialog.show();
+        protected void onPreExecute(){
+            mProgressDialog = new ProgressDialog(DBRoulette.this);
+            mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            mProgressDialog.setTitle("Loading...");
+            mProgressDialog.show();
+        }
 
-        new Thread(){
-            public void run(){
-                try {
-                    String parentRev = null;
-                    File file = new File(path);
-                    {
-                        FileOutputStream outputStream = new FileOutputStream(file);
-                        DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
-                                outputStream, createRangeProgressListener(0, 50));
-                        parentRev = info.getMetadata().rev;
+        protected Long doInBackground(String... params) {
+            final String content = params[0];
+            final String path = params[1];
 
-                        outputStream = new FileOutputStream(file, true);
-                        outputStream.write(content.getBytes());
-                    }
-                    {
-                        FileInputStream inStream = new FileInputStream(file);
-                        DropboxAPI.Entry response = mApi.putFile(ORG_PATH, inStream,
-                                file.length(), parentRev,
-                                createRangeProgressListener(50, 100));
-                        showToast("Uploaded file rev : " + response.rev);
-                    }
-                } catch (Exception e) {
-                    showToast(e.toString());
-                } finally {
-                    mProgressDialog.dismiss();
+            try {
+                String parentRev = null;
+                File file = new File(path);
+                {
+                    FileOutputStream outputStream = new FileOutputStream(file);
+                    DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
+                            outputStream,
+                            new ProgressListener() {
+                                @Override
+                                public void onProgress(long bytes, long total) {
+                                    final int firstHalfPercent = (int)((100 * bytes / total) / 2);
+                                    publishProgress(firstHalfPercent);
+                                }
+                            });
+                    parentRev = info.getMetadata().rev;
+
+                    outputStream = new FileOutputStream(file, true);
+                    outputStream.write(content.getBytes());
                 }
-             }
-        }.start();
+                {
+                    FileInputStream inStream = new FileInputStream(file);
+                    DropboxAPI.Entry response = mApi.putFile(ORG_PATH, inStream,
+                            file.length(), parentRev,
+                            new ProgressListener() {
+                                @Override
+                                public void onProgress(long bytes, long total) {
+                                    final int secondHalfPecent = (int)(50 + (100 * bytes / total) / 2);
+                                    publishProgress(secondHalfPecent);
+                                }
+                            });
+                    showToast("Uploaded file rev : " + response.rev);
+                }
+            } catch (Exception e) {
+                showToast(e.toString());
+            }
+            long ret = 0;
+            return ret;
+        }
 
+        protected void onProgressUpdate(Integer... progress){
+            final int percent = progress[0];
+            mProgressDialog.setProgress(percent);
+        }
+
+        protected void onPostExecute(Long resut){
+            mProgressDialog.dismiss();
+        }
     }
 
     @Override
@@ -251,33 +276,6 @@ public class DBRoulette extends Activity {
     		mSubmit.setText("Link with Dropbox");
             mDisplay.setVisibility(View.GONE);
     	}
-    }
-
-    private ProgressListener createRangeProgressListener(int basePercent, int topPercent) {
-
-        class MyProgressListener extends ProgressListener {
-            private int mBasePercent;
-            private int mTopPercent;
-
-            public MyProgressListener(int basePercent, int topPercent){
-                mBasePercent = basePercent;
-                mTopPercent = topPercent;
-            }
-
-            @Override
-            public long progressInterval(){
-                return 100;
-            }
-
-            @Override
-            public void onProgress(long bytes, long total) {
-                int percent = mBasePercent +
-                        (int)((mTopPercent - mBasePercent) * bytes / (float)total);
-                mProgressDialog.setProgress(percent);
-            }
-        };
-
-        return new MyProgressListener(basePercent, topPercent);
     }
 
     private String createOrgContent(String captureTitle, String captureContent) {
