@@ -117,7 +117,7 @@ public class DBRoulette extends Activity {
         mDisplay = (LinearLayout)findViewById(R.id.logged_in_display);
 
         mOrgDailyEdit = (EditText)findViewById(R.id.org_daily_edit);
-        mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
+        mOrgDailyEdit.setText("...\n" + getOrgDaily(mOrgData.second));
         mCaptureTitle = (EditText)findViewById(R.id.capture_title);
         mCaptureContent = (EditText)findViewById(R.id.capture_content);
 
@@ -142,6 +142,13 @@ public class DBRoulette extends Activity {
             });
 
         setLoggedIn(mApi.getSession().isLinked());
+
+        if (mLoggedIn) {
+            final String orgFileRev = mOrgData.first;
+            final String orgFileContent = mOrgData.second;
+
+            new SyncOrgContentTask().execute(getFilesDir() + "/temp.txt", orgFileRev, orgFileContent);
+        }
 
         Intent intent = getIntent();
         final String action = intent.getAction();
@@ -180,8 +187,61 @@ public class DBRoulette extends Activity {
         }
     }
 
-    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Void> {
+    private class SyncOrgContentTask extends AsyncTask<String, Void, Void> {
+        private String mRev = null;
+        private String mContent = null;
 
+        protected Void doInBackground(String... params) {
+            final String path = params[0];
+            String prevRev = params[1];
+            String prevContent = params[2];
+
+            mRev = prevRev;
+            mContent = prevContent;
+
+            try {
+                {
+                    DropboxAPI.Entry entry = mApi.metadata(ORG_PATH, 1, null, false, null);
+                    if (prevRev.equals(entry.rev))
+                        return null;
+                    mRev = entry.rev;
+                }
+
+                File file = new File(path);
+                {
+                    FileOutputStream outputStream = new FileOutputStream(file);
+                    mApi.getFile(ORG_PATH, null, outputStream, null);
+                }
+                {
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(new FileInputStream(file)));
+                    StringBuilder sb = new StringBuilder();
+                    String line = null;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                        sb.append('\n');
+                    }
+                    mContent = sb.toString();
+                }
+            } catch (Exception e) {
+                showToast(e.toString());
+            }
+            return null;
+        }
+
+        protected void onPostExecute(Void result){
+            if (mRev.equals(mOrgData.first)) {
+                mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
+                return;
+            }
+
+            mOrgData = new Pair(mRev, mContent);
+            mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
+            storeOrgFileData(mOrgData);
+        }
+    }
+
+    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Void> {
         private String mRev = null;
         private String mContent = null;
 
@@ -267,6 +327,7 @@ public class DBRoulette extends Activity {
         protected void onPostExecute(Void result){
             mProgressDialog.dismiss();
             mOrgData = new Pair(mRev, mContent);
+            mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
             storeOrgFileData(mOrgData);
         }
     }
@@ -450,7 +511,7 @@ public class DBRoulette extends Activity {
         Pattern p = Pattern.compile("\\n(\\* .*?)\\n\\*", DOTALL);
         Matcher m = p.matcher(orgContent);
         if (m.find()) {
-            return m.group();
+            return m.group(1);
         }
         return null;
     }
