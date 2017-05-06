@@ -115,7 +115,7 @@ public class DBRoulette extends Activity {
                 if (mLoggedIn) {
                     logOut();
                 } else {
-                        mApi.getSession().startOAuth2Authentication(DBRoulette.this);
+                    mApi.getSession().startOAuth2Authentication(DBRoulette.this);
                 }
             }
         });
@@ -148,17 +148,20 @@ public class DBRoulette extends Activity {
             final String orgLastCaptured = mOrgData.lastCaptured;
             new SyncOrgContentTask().execute(orgFileRev, orgLastCaptured);
         }
+    }
 
-        Intent intent = getIntent();
+    private void initEditTexts(final Intent intent, final String orgLastCaptured,
+                               EditText editTitle, EditText editContent) {
         final String action = intent.getAction();
         final String type = intent.getType();
+        String title = "";
+        String content = "";
 
-        if (Intent.ACTION_SEND.equals(action) && type != null)
+        if (Intent.ACTION_SEND.equals(action))
         {
             if ("text/plain".equals(type))
             {
-                final String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-                String title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+                title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
                 if (title == null)
                     title = intent.getStringExtra(Intent.EXTRA_TITLE);
                 if (title == null) {
@@ -170,20 +173,21 @@ public class DBRoulette extends Activity {
                     title = "capture";
                 }
 
-                mCaptureTitle.setText(title);
-                mCaptureContent.setText(text);
+                content = intent.getStringExtra(Intent.EXTRA_TEXT);
             }
         } else {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             ClipData clipData = clipboard.getPrimaryClip();
             ClipData.Item item = (clipData != null) ? clipData.getItemAt(0) : null;
-            final String text = (item != null) ? item.getText().toString() : null;
-            final String title = "clipboard";
-            if (mOrgData.lastCaptured.equals(text) == false) {
-                mCaptureTitle.setText(title);
-                mCaptureContent.setText(text);
+            final String clipContent = (item != null) ? item.getText().toString() : null;
+            if (orgLastCaptured.equals(clipContent) == false) {
+                title = "clipboard";
+                content = clipContent;
             }
         }
+
+        editTitle.setText(title);
+        editContent.setText(content);
     }
 
     private class SyncOrgContentTask extends AsyncTask<String, Void, Boolean> {
@@ -275,10 +279,11 @@ public class DBRoulette extends Activity {
                 {
                     FileOutputStream outputStream = new FileOutputStream(file);
                     if (currRev.equals(prevRev)) {
-                        showToast("rev match. using cached data");
+                        Log.i(TAG, "rev match. using cached data");
+                        publishProgress(50);
                         outputStream.write(prevFileContent.getBytes());
                     } else {
-                        showToast("rev mismatch.");
+                        Log.i(TAG, "rev mismatch. read file.");
                         mApi.getFile(ORG_PATH, null,
                             outputStream,
                             new ProgressListener() {
@@ -305,7 +310,6 @@ public class DBRoulette extends Activity {
                                     publishProgress(secondHalfPecent);
                                 }
                             });
-                    showToast("Uploaded file rev : " + response.rev);
                     mRev = response.rev;
                 }
                 {
@@ -360,10 +364,6 @@ public class DBRoulette extends Activity {
     protected void onResume() {
         super.onResume();
         AndroidAuthSession session = mApi.getSession();
-
-        // The next part must be inserted in the onResume() method of the
-        // activity from which session.startAuthentication() was called, so
-        // that Dropbox authentication completes properly.
         if (session.authenticationSuccessful()) {
             try {
                 // Mandatory call to complete the auth
@@ -377,7 +377,10 @@ public class DBRoulette extends Activity {
                 Log.i(TAG, "Error authenticating", e);
             }
         }
+
+        initEditTexts(getIntent(), mOrgData.lastCaptured, mCaptureTitle, mCaptureContent);
     }
+
     private void logOut() {
         // Remove credentials from the session
         mApi.getSession().unlink();
