@@ -48,7 +48,6 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.Pair;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -75,11 +74,19 @@ public class DBRoulette extends Activity {
     private static final String ORG_PREFS_NAME = "org_prefs";
     private static final String ORG_FILE_REV_NAME = "org_hash";
     private static final String ORG_FILE_CONTENT_NAME = "org_content";
+    private static final String ORG_FILE_LAST_CAPTURED_NAME = "org_last_captured";
     private static final String ORG_PATH = "/life.org";
+    private static final String TEMP_FILE_NAME = "/temp.txt";
+
+    private class OrgData {
+        String rev;
+        String fileContent;
+        String lastCaptured;
+    };
 
     DropboxAPI<AndroidAuthSession> mApi;
     private boolean mLoggedIn;
-    private Pair<String, String> mOrgData;
+    private OrgData mOrgData;
 
     // Android widgets
     private Button mSubmit;
@@ -94,8 +101,7 @@ public class DBRoulette extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        AndroidAuthSession session = buildSession();
-        mApi = new DropboxAPI<AndroidAuthSession>(session);
+        mApi = new DropboxAPI<>(buildSession());
 
         setContentView(R.layout.main);
 
@@ -117,7 +123,7 @@ public class DBRoulette extends Activity {
         mDisplay = (LinearLayout)findViewById(R.id.logged_in_display);
 
         mOrgDailyEdit = (EditText)findViewById(R.id.org_daily_edit);
-        mOrgDailyEdit.setText("...\n" + getOrgDaily(mOrgData.second));
+        mOrgDailyEdit.setText("...\n" + getOrgDaily(mOrgData.fileContent));
         mCaptureTitle = (EditText)findViewById(R.id.capture_title);
         mCaptureContent = (EditText)findViewById(R.id.capture_content);
 
@@ -127,27 +133,20 @@ public class DBRoulette extends Activity {
                 public void onClick(View view) {
                     final String captureTitle = mCaptureTitle.getText().toString();
                     final String captureContent = mCaptureContent.getText().toString();
-                    if (captureTitle.length() == 0 || captureContent.length() == 0) {
-                        showToast("empty capture content.");
-                        return;
-                    }
+                    final String orgFileRev = mOrgData.rev;
+                    final String orgFileContent = mOrgData.fileContent;
 
-                    final String addedContent = createOrgAddedContent(captureTitle, captureContent);
-                    final String path = getFilesDir() + "/temp.txt";
-                    final String orgFileRev = mOrgData.first;
-                    final String orgFileContent = mOrgData.second;
-
-                    new UpdateOrgContentTask().execute(addedContent, path, orgFileRev, orgFileContent);
+                    new UpdateOrgContentTask().execute(
+                            captureTitle, captureContent, orgFileRev, orgFileContent);
                 }
             });
 
         setLoggedIn(mApi.getSession().isLinked());
 
         if (mLoggedIn) {
-            final String orgFileRev = mOrgData.first;
-            final String orgFileContent = mOrgData.second;
-
-            new SyncOrgContentTask().execute(getFilesDir() + "/temp.txt", orgFileRev, orgFileContent);
+            final String orgFileRev = mOrgData.rev;
+            final String orgLastCaptured = mOrgData.lastCaptured;
+            new SyncOrgContentTask().execute(orgFileRev, orgLastCaptured);
         }
 
         Intent intent = getIntent();
@@ -179,71 +178,71 @@ public class DBRoulette extends Activity {
             ClipData clipData = clipboard.getPrimaryClip();
             ClipData.Item item = (clipData != null) ? clipData.getItemAt(0) : null;
             final String text = (item != null) ? item.getText().toString() : null;
-            if (text != null)
-            {
-                mCaptureTitle.setText("clipboard");
+            final String title = "clipboard";
+            if (mOrgData.lastCaptured.equals(text) == false) {
+                mCaptureTitle.setText(title);
                 mCaptureContent.setText(text);
             }
         }
     }
 
-    private class SyncOrgContentTask extends AsyncTask<String, Void, Void> {
-        private String mRev = null;
-        private String mContent = null;
+    private class SyncOrgContentTask extends AsyncTask<String, Void, Boolean> {
+        private String mCurrRev = null;
+        private String mCurrFileContent = null;
+        private String mPrevLastCaptured = null;
 
-        protected Void doInBackground(String... params) {
-            final String path = params[0];
-            String prevRev = params[1];
-            String prevContent = params[2];
-
-            mRev = prevRev;
-            mContent = prevContent;
+        protected Boolean doInBackground(String... params) {
+            final String prevRev = params[0];
+            final String prevLastCaptured = params[1];
+            final String path = getFilesDir() + TEMP_FILE_NAME;
 
             try {
-                {
-                    DropboxAPI.Entry entry = mApi.metadata(ORG_PATH, 1, null, false, null);
-                    if (prevRev.equals(entry.rev))
-                        return null;
-                    mRev = entry.rev;
-                }
+                DropboxAPI.Entry entry = mApi.metadata(ORG_PATH, 1, null, false, null);
+                if (prevRev.equals(entry.rev))
+                    return false;
+
+                mCurrRev = entry.rev;
+                mPrevLastCaptured = prevLastCaptured;
 
                 File file = new File(path);
-                {
-                    FileOutputStream outputStream = new FileOutputStream(file);
-                    mApi.getFile(ORG_PATH, null, outputStream, null);
+                FileOutputStream outputStream = new FileOutputStream(file);
+                mApi.getFile(ORG_PATH, null, outputStream, null);
+
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(new FileInputStream(file)));
+                StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                    sb.append('\n');
                 }
-                {
-                    BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(new FileInputStream(file)));
-                    StringBuilder sb = new StringBuilder();
-                    String line = null;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                        sb.append('\n');
-                    }
-                    mContent = sb.toString();
-                }
+                mCurrFileContent = sb.toString();
             } catch (Exception e) {
                 showToast(e.toString());
+                return false;
             }
-            return null;
+            return true;
         }
 
-        protected void onPostExecute(Void result){
-            if (mRev.equals(mOrgData.first)) {
-                mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
+        protected void onPostExecute(Boolean result){
+            if (result == false) {
+                mOrgDailyEdit.setText(getOrgDaily(mOrgData.fileContent));
                 return;
             }
 
-            mOrgData = new Pair(mRev, mContent);
-            mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
+            mOrgData = new OrgData();
+            mOrgData.rev = mCurrRev;
+            mOrgData.fileContent = mCurrFileContent;
+            mOrgData.lastCaptured = mPrevLastCaptured;
+            mOrgDailyEdit.setText(getOrgDaily(mOrgData.fileContent));
             storeOrgFileData(mOrgData);
         }
     }
 
-    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Void> {
+    private class UpdateOrgContentTask extends AsyncTask<String, Integer, Boolean> {
         private String mRev = null;
-        private String mContent = null;
+        private String mFileContent = null;
+        private String mLastCaptured = null;
 
         protected void onPreExecute(){
             mProgressDialog = new ProgressDialog(DBRoulette.this);
@@ -252,11 +251,18 @@ public class DBRoulette extends Activity {
             mProgressDialog.show();
         }
 
-        protected Void doInBackground(String... params) {
-            final String addedContent = params[0];
-            final String path = params[1];
-            String prevRev = params[2];
-            String prevContent = params[3];
+        protected Boolean doInBackground(String... params) {
+            final String captureTitle = params[0];
+            final String captureContent = params[1];
+            final String prevRev = params[2];
+            final String prevFileContent = params[3];
+            final String addedContent = createOrgAddedContent(captureTitle, captureContent);
+            final String path = getFilesDir() + TEMP_FILE_NAME;
+
+            if (captureTitle.length() == 0 || captureContent.length() == 0) {
+                showToast("empty capture content.");
+                return false;
+            }
 
             try {
                 String currRev;
@@ -270,10 +276,10 @@ public class DBRoulette extends Activity {
                     FileOutputStream outputStream = new FileOutputStream(file);
                     if (currRev.equals(prevRev)) {
                         showToast("rev match. using cached data");
-                        outputStream.write(prevContent.getBytes());
+                        outputStream.write(prevFileContent.getBytes());
                     } else {
                         showToast("rev mismatch.");
-                        DropboxAPI.DropboxFileInfo info = mApi.getFile(ORG_PATH, null,
+                        mApi.getFile(ORG_PATH, null,
                             outputStream,
                             new ProgressListener() {
                                 @Override
@@ -311,12 +317,14 @@ public class DBRoulette extends Activity {
                         sb.append(line);
                         sb.append('\n');
                     }
-                    mContent = sb.toString();
+                    mFileContent = sb.toString();
+                    mLastCaptured = captureContent;
                 }
             } catch (Exception e) {
                 showToast(e.toString());
+                return false;
             }
-            return null;
+            return true;
         }
 
         protected void onProgressUpdate(Integer... progress){
@@ -324,10 +332,17 @@ public class DBRoulette extends Activity {
             mProgressDialog.setProgress(percent);
         }
 
-        protected void onPostExecute(Void result){
+        protected void onPostExecute(Boolean result){
             mProgressDialog.dismiss();
-            mOrgData = new Pair(mRev, mContent);
-            mOrgDailyEdit.setText(getOrgDaily(mOrgData.second));
+
+            if (result == false)
+                return;
+
+            mOrgData = new OrgData();
+            mOrgData.rev = mRev;
+            mOrgData.fileContent = mFileContent;
+            mOrgData.lastCaptured = mLastCaptured;
+            mOrgDailyEdit.setText(getOrgDaily(mOrgData.fileContent));
             storeOrgFileData(mOrgData);
         }
     }
@@ -399,14 +414,6 @@ public class DBRoulette extends Activity {
     }
 
     private void checkAppKeySetup() {
-        // Check to make sure that we have a valid app key
-        if (APP_KEY.startsWith("CHANGE") || APP_SECRET.startsWith("CHANGE")) {
-            showToast("You must apply for an app key and secret from developers.dropbox.com, "
-                    + "and add them to the DBRoulette ap before trying it.");
-            finish();
-            return;
-        }
-
         // Check if the app has set up its manifest properly.
         Intent testIntent = new Intent(Intent.ACTION_VIEW);
         String scheme = "db-" + APP_KEY;
@@ -446,21 +453,25 @@ public class DBRoulette extends Activity {
         }
     }
 
-    private void storeOrgFileData(Pair<String, String> orgData) {
+    private void storeOrgFileData(OrgData orgData) {
         SharedPreferences prefs = getSharedPreferences(ORG_PREFS_NAME, MODE_PRIVATE);
         Editor editor = prefs.edit();
-        final String rev = orgData.first;
-        final String content = orgData.second;
+        final String rev = orgData.rev;
+        final String content = orgData.fileContent;
+        final String lastCaptured = orgData.lastCaptured;
         editor.putString(ORG_FILE_REV_NAME, rev);
         editor.putString(ORG_FILE_CONTENT_NAME, content);
+        editor.putString(ORG_FILE_LAST_CAPTURED_NAME, lastCaptured);
         editor.commit();
     }
 
-    private Pair<String, String> loadOrgFileData(){
+    private OrgData loadOrgFileData(){
+        OrgData orgData = new OrgData();
         SharedPreferences prefs = getSharedPreferences(ORG_PREFS_NAME, MODE_PRIVATE);
-        final String rev = prefs.getString(ORG_FILE_REV_NAME, null);
-        final String content = prefs.getString(ORG_FILE_CONTENT_NAME, null);
-        return new Pair(rev, content);
+        orgData.rev = prefs.getString(ORG_FILE_REV_NAME, "");
+        orgData.fileContent = prefs.getString(ORG_FILE_CONTENT_NAME, "");
+        orgData.lastCaptured = prefs.getString(ORG_FILE_LAST_CAPTURED_NAME, "");
+        return orgData;
     }
 
     /**
@@ -513,6 +524,6 @@ public class DBRoulette extends Activity {
         if (m.find()) {
             return m.group(1);
         }
-        return null;
+        return "";
     }
 }
