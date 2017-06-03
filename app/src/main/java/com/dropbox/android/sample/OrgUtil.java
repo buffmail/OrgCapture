@@ -24,6 +24,7 @@ import static java.util.regex.Pattern.DOTALL;
 public class OrgUtil {
     private static final String TAG = "OrgUtil";
     private static final String ORG_PATH = "/life.org";
+    private static final String ORG_FIRST_ENTRY_PATTERN = "\\n(\\* .*?)\\n\\*";
 
     public static class OrgData {
         String fileFullContent;
@@ -116,16 +117,8 @@ public class OrgUtil {
         }
 
         protected Boolean doInBackground(String... params) {
-            final String captureTitle = params[0];
-            final String captureContent = params[1];
-            final String prevRev = params[2];
-            final String prevFileContent = params[3];
-            final String addedContent = CreateOrgAddedContent(captureTitle, captureContent);
-
-            if (captureTitle.length() == 0 || captureContent.length() == 0) {
-                Log.d(TAG, "empty capture content.");
-                return false;
-            }
+            final String prevRev = params[0];
+            final String newOrgFileFullContent = params[1];
 
             try {
                 String currRev;
@@ -139,24 +132,11 @@ public class OrgUtil {
                     FileOutputStream outputStream = new FileOutputStream(file);
                     if (currRev.equals(prevRev)) {
                         Log.i(TAG, "rev match. using cached data");
-                        publishProgress(50);
-                        outputStream.write(prevFileContent.getBytes());
+                        outputStream.write(newOrgFileFullContent.getBytes());
                     } else {
-                        Log.i(TAG, "rev mismatch. read file.");
-                        mApi.getFile(ORG_PATH, null,
-                                outputStream,
-                                new ProgressListener() {
-                                    @Override
-                                    public void onProgress(long bytes, long total) {
-                                        final int firstHalfPercent = (int) ((100 * bytes / total) / 2);
-                                        publishProgress(firstHalfPercent);
-                                    }
-                                });
+                        Log.i(TAG, "rev mismatch.");
+                        return false;
                     }
-                }
-                {
-                    FileOutputStream outputStream = new FileOutputStream(file, true);
-                    outputStream.write(addedContent.getBytes());
                 }
                 {
                     FileInputStream inStream = new FileInputStream(file);
@@ -165,8 +145,8 @@ public class OrgUtil {
                             new ProgressListener() {
                                 @Override
                                 public void onProgress(long bytes, long total) {
-                                    final int secondHalfPecent = (int)(50 + (100 * bytes / total) / 2);
-                                    publishProgress(secondHalfPecent);
+                                    final int percent = (int)(100 * bytes / total);
+                                    publishProgress(percent);
                                 }
                             });
                     mRev = response.rev;
@@ -209,7 +189,7 @@ public class OrgUtil {
     }
 
     public static String GetOrgDailyLog(String orgFullContent){
-        Pattern p = Pattern.compile("\\n(\\* .*?)\\n\\*", DOTALL);
+        Pattern p = Pattern.compile(ORG_FIRST_ENTRY_PATTERN, DOTALL);
         Matcher m = p.matcher(orgFullContent);
         if (m.find()) {
             return m.group(1);
@@ -217,7 +197,18 @@ public class OrgUtil {
         return "";
     }
 
-    private static String CreateOrgAddedContent(String captureTitle, String captureContent) {
+    public static String GetRevisedDailyLog(String orgFullContent, String newDailyLog){
+        Pattern p = Pattern.compile(ORG_FIRST_ENTRY_PATTERN, DOTALL);
+        Matcher m = p.matcher(orgFullContent);
+        if (m.find()) {
+            StringBuffer buf = new StringBuffer(orgFullContent);
+            buf.replace(m.start(1), m.end(1), newDailyLog);
+            return buf.toString();
+        }
+        return orgFullContent;
+    }
+
+    public static String CreateOrgAddedContent(String orgContent, String captureTitle, String captureContent) {
         SimpleDateFormat sdf = new SimpleDateFormat("[yyyy-MM.dd EEE]");
 
         String temp = "\n** ";
@@ -226,7 +217,7 @@ public class OrgUtil {
         temp += "\n   ";
         temp += captureContent;
 
-        return temp;
+        return orgContent + temp;
     }
 
 }

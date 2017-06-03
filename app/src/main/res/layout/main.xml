@@ -16,7 +16,8 @@
 		android:layout_width="fill_parent"
 		android:layout_height="261dp"
 		android:ems="10"
-		android:inputType="textMultiLine" />
+		android:inputType="textMultiLine"
+		android:scrollbars="vertical"/>
 
 	<EditText
 		android:id="@+id/capture_title"
@@ -48,9 +49,16 @@
 		    android:layout_width="fill_parent"
 		    android:layout_height="wrap_content"
 		    >
-		    <Button 
-		      android:id="@+id/capture_to_org_button"
-		      android:text="Capture content to org file"
+			<Button
+				android:id="@+id/capture_to_org_button"
+				android:text="Capture content"
+				android:layout_width="fill_parent"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				/>
+		    <Button
+		      android:id="@+id/save_org_daily_log_button"
+		      android:text="Save Daily Log"
 		      android:layout_width="fill_parent"
 		      android:layout_height="wrap_content"
 	          android:layout_weight="1"

@@ -63,7 +63,6 @@ public class OrgCapture extends Activity {
     private static final String ORG_PREFS_NAME = "org_prefs";
     private static final String ORG_FILE_REV_NAME = "org_hash";
     private static final String ORG_FILE_CONTENT_NAME = "org_content";
-    private static final String ORG_PATH = "/life.org";
     private static final String TEMP_FILE_NAME = "/temp.txt";
 
     DropboxAPI<AndroidAuthSession> mApi;
@@ -74,6 +73,7 @@ public class OrgCapture extends Activity {
     private Button mSubmit;
     private LinearLayout mDisplay;
     private Button mCaptureButton;
+    private Button mSaveDailyLogButton;
     private EditText mOrgDailyEdit;
     private EditText mCaptureTitle;
     private EditText mCaptureContent;
@@ -115,7 +115,8 @@ public class OrgCapture extends Activity {
                     final String captureTitle = mCaptureTitle.getText().toString();
                     final String captureContent = mCaptureContent.getText().toString();
                     final String orgFileRev = mOrgData.rev;
-                    final String orgFileContent = mOrgData.fileFullContent;
+                    final String orgNewFileContent = OrgUtil.CreateOrgAddedContent(mOrgData.fileFullContent,
+                            captureTitle, captureContent);
                     final String path = getFilesDir() + TEMP_FILE_NAME;
 
                     UpdateOrgContentTask task = new UpdateOrgContentTask(path, mApi, OrgCapture.this, new OrgUtil.OnCompleteListener() {
@@ -124,17 +125,43 @@ public class OrgCapture extends Activity {
                             if (data != null){
                                 mOrgData = data;
                                 storeOrgFileData(mOrgData);
-                                showToast("Updated.");
+                                showToast("Capture updated.");
                             } else {
-                                showToast("Update Failed.");
+                                showToast("Capture update failed.");
                             }
 
                             mOrgDailyEdit.setText(OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent));
                         }
                     });
-                    task.execute(captureTitle, captureContent, orgFileRev, orgFileContent);
+                    task.execute(orgFileRev, orgNewFileContent);
                 }
             });
+        mSaveDailyLogButton = (Button)findViewById(R.id.save_org_daily_log_button);
+        mSaveDailyLogButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                final String newDailyLog = mOrgDailyEdit.getText().toString();
+                final String path = getFilesDir() + TEMP_FILE_NAME;
+                final String orgFileRev = mOrgData.rev;
+                final String orgNewFileContent =
+                        OrgUtil.GetRevisedDailyLog(mOrgData.fileFullContent, newDailyLog);
+                UpdateOrgContentTask task = new UpdateOrgContentTask(path, mApi, OrgCapture.this, new OrgUtil.OnCompleteListener() {
+                    @Override
+                    public void onComplete(OrgData data) {
+                        if (data != null){
+                            mOrgData = data;
+                            storeOrgFileData(mOrgData);
+                            showToast("Dailylog updated.");
+                        } else {
+                            showToast("Dailylog update failed.");
+                        }
+
+                        mOrgDailyEdit.setText(OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent));
+                    }
+                });
+                task.execute(orgFileRev, orgNewFileContent);
+            }
+        });
 
         setLoggedIn(mApi.getSession().isLinked());
 
