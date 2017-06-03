@@ -53,10 +53,8 @@ import com.dropbox.android.sample.OrgUtil.GetOrgContentTask;
 import com.dropbox.android.sample.OrgUtil.OrgData;
 import com.dropbox.android.sample.OrgUtil.UpdateOrgContentTask;
 
-import static java.util.regex.Pattern.DOTALL;
-
-public class DBRoulette extends Activity {
-    private static final String TAG = "DBRoulette";
+public class OrgCapture extends Activity {
+    private static final String TAG = "OrgCapture";
     private static final String APP_KEY = "h1hbkipv02vmg9k";
     private static final String APP_SECRET = "r8sadyhrpw0w57u";
     private static final String ACCOUNT_PREFS_NAME = "prefs";
@@ -98,7 +96,7 @@ public class DBRoulette extends Activity {
                 if (mLoggedIn) {
                     logOut();
                 } else {
-                    mApi.getSession().startOAuth2Authentication(DBRoulette.this);
+                    mApi.getSession().startOAuth2Authentication(OrgCapture.this);
                 }
             }
         });
@@ -120,7 +118,7 @@ public class DBRoulette extends Activity {
                     final String orgFileContent = mOrgData.fileFullContent;
                     final String path = getFilesDir() + TEMP_FILE_NAME;
 
-                    UpdateOrgContentTask task = new UpdateOrgContentTask(path, mApi, DBRoulette.this, new OrgUtil.OnCompleteListener() {
+                    UpdateOrgContentTask task = new UpdateOrgContentTask(path, mApi, OrgCapture.this, new OrgUtil.OnCompleteListener() {
                         @Override
                         public void onComplete(OrgData data) {
                             if (data != null){
@@ -265,7 +263,7 @@ public class DBRoulette extends Activity {
     private void showToast(final String msg) {
         runOnUiThread(new Runnable(){
             public void run() {
-                Toast error = Toast.makeText(DBRoulette.this, msg, Toast.LENGTH_LONG);
+                Toast error = Toast.makeText(OrgCapture.this, msg, Toast.LENGTH_LONG);
                 error.show();
             }
         });
