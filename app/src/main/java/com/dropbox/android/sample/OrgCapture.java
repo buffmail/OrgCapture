@@ -130,7 +130,9 @@ public class OrgCapture extends Activity {
                                 showToast("Capture update failed.");
                             }
 
-                            mOrgDailyEdit.setText(OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent));
+                            final String dailyLog = OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent);
+                            mOrgDailyEdit.setText(dailyLog);
+                            mOrgDailyEdit.setSelection(dailyLog.length());
                         }
                     });
                     task.execute(orgFileRev, orgNewFileContent);
@@ -156,7 +158,9 @@ public class OrgCapture extends Activity {
                             showToast("Dailylog update failed.");
                         }
 
-                        mOrgDailyEdit.setText(OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent));
+                        final String dailyLog = OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent);
+                        mOrgDailyEdit.setText(dailyLog);
+                        mOrgDailyEdit.setSelection(dailyLog.length());
                     }
                 });
                 task.execute(orgFileRev, orgNewFileContent);
@@ -177,7 +181,10 @@ public class OrgCapture extends Activity {
                         mOrgData = data;
                         storeOrgFileData(mOrgData);
                     }
+
+                    final String dailyLog = OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent);
                     mOrgDailyEdit.setText(OrgUtil.GetOrgDailyLog(mOrgData.fileFullContent));
+                    mOrgDailyEdit.setSelection(dailyLog.length());
                 }
             });
             task.execute(orgFileRev);

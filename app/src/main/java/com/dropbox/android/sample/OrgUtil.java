@@ -24,7 +24,7 @@ import static java.util.regex.Pattern.DOTALL;
 public class OrgUtil {
     private static final String TAG = "OrgUtil";
     private static final String ORG_PATH = "/life.org";
-    private static final String ORG_FIRST_ENTRY_PATTERN = "\\n(\\* .*?)\\n\\*";
+    private static final String ORG_FIRST_ENTRY_PATTERN = "^(\\* .*?)\\n\\*";
 
     public static class OrgData {
         String fileFullContent;
