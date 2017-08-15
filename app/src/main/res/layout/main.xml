@@ -14,8 +14,10 @@
 	<EditText
 		android:id="@+id/org_daily_edit"
 		android:layout_width="fill_parent"
-		android:layout_height="261dp"
+		android:layout_height="fill_parent"
+		android:layout_weight="1"
 		android:ems="10"
+		android:gravity="top"
 		android:inputType="textMultiLine"
 		android:scrollbars="vertical"/>
 
@@ -30,18 +32,16 @@
 		android:id="@+id/capture_content"
 		style="@android:style/Widget.EditText"
 		android:layout_width="fill_parent"
-		android:layout_height="107dp"
+		android:layout_height="60dp"
 		android:ems="10"
 		android:inputType="textMultiLine"
-		android:selectAllOnFocus="false"
-		android:singleLine="false" />
+		android:selectAllOnFocus="false" />
 
 	<LinearLayout
         android:id="@+id/logged_in_display" 
         android:orientation="vertical"
         android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         >
 
 		<LinearLayout
